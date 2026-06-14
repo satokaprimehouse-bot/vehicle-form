@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>車両使用記録</title>
+<style>
+  :root {
+    --green: #1D9E75;
+    --green-dark: #0F6E56;
+    --green-light: #E1F5EE;
+    --green-mid: #5DCAA5;
+    --text: #1a1a1a;
+    --text-sub: #6b7280;
+    --text-hint: #9ca3af;
+    --border: #e5e7eb;
+    --border-focus: #1D9E75;
+    --bg: #f9fafb;
+    --card: #ffffff;
+    --danger: #E24B4A;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif; color: var(--text); }
+
+  .topbar {
+    background: var(--green);
+    padding: env(safe-area-inset-top, 0) 0 0;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-inner {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px 12px;
+  }
+  .topbar-icon { font-size: 22px; color: rgba(255,255,255,.85); }
+  .topbar-title { font-size: 16px; font-weight: 600; color: #fff; }
+  .topbar-sub { font-size: 11px; color: rgba(255,255,255,.7); margin-top: 1px; }
+  .progress-bar { height: 3px; background: rgba(255,255,255,.25); }
+  .progress-fill { height: 3px; background: #fff; transition: width .3s ease; }
+
+  .step-wrap { display: none; padding: 16px 16px 100px; }
+  .step-wrap.active { display: block; }
+
+  .step-eyebrow {
+    font-size: 11px; font-weight: 600; letter-spacing: .08em;
+    color: var(--green); text-transform: uppercase; margin-bottom: 4px;
+  }
+  .step-title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 16px; line-height: 1.3; }
+
+  .card {
+    background: var(--card); border-radius: var(--radius);
+    border: 1px solid var(--border); padding: 16px; margin-bottom: 12px;
+  }
+  .card-label {
+    font-size: 11px; font-weight: 600; color: var(--text-sub);
+    letter-spacing: .06em; text-transform: uppercase; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .card-label svg { width: 14px; height: 14px; stroke: var(--text-sub); }
+
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block; font-size: 13px; font-weight: 500;
+    color: var(--text-sub); margin-bottom: 6px;
+  }
+  .req { color: var(--danger); margin-left: 2px; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 13px 14px;
+    border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 16px; color: var(--text); background: #fff;
+    appearance: none; -webkit-appearance: none;
+    transition: border-color .15s;
+    font-family: inherit;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(29,158,117,.12);
+  }
+  .field textarea { resize: none; min-height: 80px; line-height: 1.5; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hint { font-size: 12px; color: var(--text-hint); margin-top: 5px; }
+  .input-unit { position: relative; }
+  .input-unit input { padding-right: 44px; }
+  .input-unit .unit {
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    font-size: 13px; color: var(--text-hint); pointer-events: none;
+  }
+
+  .big-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 15px 14px; border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border); background: #fff;
+    cursor: pointer; transition: all .15s; margin-bottom: 10px; user-select: none;
+  }
+  .big-toggle:last-child { margin-bottom: 0; }
+  .big-toggle.on { border-color: var(--green-mid); background: var(--green-light); }
+  .toggle-left { display: flex; align-items: center; gap: 12px; }
+  .toggle-icon {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--bg); display: flex; align-items: center; justify-content: center;
+    font-size: 18px; transition: background .15s;
+  }
+  .big-toggle.on .toggle-icon { background: rgba(29,158,117,.15); }
+  .toggle-text { font-size: 15px; font-weight: 600; color: var(--text); }
+  .toggle-sub { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+  .pill {
+    font-size: 12px; font-weight: 600; padding: 4px 10px;
+    border-radius: 20px; background: var(--border); color: var(--text-sub);
+    transition: all .15s; white-space: nowrap;
+  }
+  .big-toggle.on .pill { background: var(--green); color: #fff; }
+
+  .cam-zone {
+    border: 2px dashed var(--border); border-radius: var(--radius-sm);
+    padding: 28px 16px; text-align: center; cursor: pointer;
+    background: #fff; position: relative; transition: all .15s;
+  }
+  .cam-zone:active { background: var(--bg); }
+  .cam-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 16px; }
+  .cam-zone-icon { font-size: 36px; color: var(--text-hint); display: block; margin-bottom: 8px; }
+  .cam-zone-label { font-size: 15px; font-weight: 600; color: var(--text-sub); }
+  .cam-zone-hint { font-size: 12px; color: var(--text-hint); margin-top: 4px; }
+  .preview-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 8px; margin-top: 12px;
+  }
+  .thumb {
+    aspect-ratio: 1; border-radius: var(--radius-sm);
+    overflow: hidden; position: relative; background: var(--bg);
+    border: 1px solid var(--border);
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb-del {
+    position: absolute; top: 4px; right: 4px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(0,0,0,.6); border: none; cursor: pointer;
+    color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center;
+    padding: 0;
+  }
+
+  .fuel-total-row {
+    background: var(--green-light); border-radius: var(--radius-sm);
+    padding: 12px 14px; display: flex; justify-content: space-between; align-items: center;
+    margin-top: 10px;
+  }
+  .fuel-total-label { font-size: 13px; color: var(--green-dark); font-weight: 500; }
+  .fuel-total-val { font-size: 18px; font-weight: 700; color: var(--green-dark); }
+
+  .confirm-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+  }
+  .confirm-row:last-child { border-bottom: none; }
+  .confirm-key { color: var(--text-sub); flex-shrink: 0; margin-right: 12px; }
+  .confirm-val { font-weight: 600; text-align: right; color: var(--text); word-break: break-all; }
+  .confirm-badge {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    padding: 2px 8px; border-radius: 20px;
+  }
+  .badge-ok { background: var(--green-light); color: var(--green-dark); }
+  .badge-ng { background: #fef2f2; color: #991b1b; }
+
+  .nav-fixed {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(255,255,255,.95); backdrop-filter: blur(8px);
+    border-top: 1px solid var(--border);
+    padding: 12px 16px env(safe-area-inset-bottom, 12px);
+    display: flex; gap: 10px;
+  }
+  .btn-back {
+    flex: 1; padding: 15px; border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border); background: #fff;
+    font-size: 15px; font-weight: 600; color: var(--text-sub);
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-next {
+    flex: 2; padding: 15px; border-radius: var(--radius-sm);
+    border: none; background: var(--green);
+    font-size: 15px; font-weight: 700; color: #fff;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background .15s;
+  }
+  .btn-next:active { background: var(--green-dark); }
+  .btn-next:disabled { background: var(--text-hint); cursor: not-allowed; }
+  .skip-txt {
+    text-align: center; font-size: 13px; color: var(--text-hint);
+    text-decoration: underline; text-underline-offset: 3px;
+    cursor: pointer; margin-top: 10px;
+  }
+
+  .success-screen {
+    display: none; min-height: 100vh;
+    flex-direction: column; align-items: center; justify-content: center;
+    padding: 40px 24px; text-align: center;
+  }
+  .success-circle {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: var(--green-light); display: flex; align-items: center; justify-content: center;
+    font-size: 40px; margin-bottom: 20px;
+  }
+  .success-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+  .success-sub { font-size: 15px; color: var(--text-sub); line-height: 1.6; }
+  .btn-again {
+    margin-top: 32px; padding: 16px 32px; border-radius: var(--radius-sm);
+    background: var(--green); color: #fff; font-size: 16px; font-weight: 700;
+    border: none; cursor: pointer; width: 100%; max-width: 320px;
+  }
+
+  .loading-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(255,255,255,.9); z-index: 999;
+    flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  }
+  .spinner {
+    width: 44px; height: 44px; border: 3px solid var(--green-light);
+    border-top-color: var(--green); border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-txt { font-size: 15px; color: var(--text-sub); font-weight: 500; }
+
+  .error-toast {
+    position: fixed; bottom: 90px; left: 16px; right: 16px;
+    background: #fef2f2; border: 1px solid #fca5a5; border-radius: var(--radius-sm);
+    padding: 12px 14px; font-size: 14px; color: #991b1b;
+    display: none; z-index: 200; font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <span class="topbar-icon">🚗</span>
+    <div>
+      <div class="topbar-title">車両使用記録</div>
+      <div class="topbar-sub" id="step-sub">ステップ 1 / 4</div>
+    </div>
+  </div>
+  <div class="progress-bar">
+    <div class="progress-fill" id="progress-fill" style="width:25%"></div>
+  </div>
+</div>
+
+<!-- STEP 1: 外出情報 -->
+<div class="step-wrap active" id="s1">
+  <div class="step-eyebrow">Step 1 of 4</div>
+  <div class="step-title">外出情報を入力</div>
+
+  <div class="card">
+    <div class="field">
+      <label>運転者名<span class="req">*</span></label>
+      <input type="text" id="f-driver" placeholder="山田 太郎" autocomplete="name" inputmode="text">
+    </div>
+    <div class="field">
+      <label>出発日時<span class="req">*</span></label>
+      <input type="datetime-local" id="f-depart">
+    </div>
+    <div class="field">
+      <label>帰着日時</label>
+      <input type="datetime-local" id="f-return">
+    </div>
+    <div class="field">
+      <label>行先<span class="req">*</span></label>
+      <input type="text" id="f-dest" placeholder="渋谷区〇〇会社" inputmode="text">
+    </div>
+  </div>
+
+  <div class="nav-fixed">
+    <button class="btn-next" style="flex:1" onclick="go(2)">次へ　→</button>
+  </div>
+</div>
+
+<!-- STEP 2: 走行距離 -->
+<div class="step-wrap" id="s2">
+  <div class="step-eyebrow">Step 2 of 4</div>
+  <div class="step-title">走行距離を記録</div>
+
+  <div class="card">
+    <div class="field-row">
+      <div class="field">
+        <label>出発時メーター</label>
+        <div class="input-unit">
+          <input type="number" id="f-odo-s" placeholder="12000" inputmode="numeric" min="0">
+          <span class="unit">km</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>帰着時メーター</label>
+        <div class="input-unit">
+          <input type="number" id="f-odo-e" placeholder="12050" inputmode="numeric" min="0">
+          <span class="unit">km</span>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label>走行距離</label>
+      <div class="input-unit">
+        <input type="number" id="f-dist" placeholder="自動計算 または 手入力" inputmode="decimal" step="0.1">
+        <span class="unit">km</span>
+      </div>
+      <div class="hint">メーターを両方入力すると自動計算されます</div>
+    </div>
+  </div>
+
+  <div class="nav-fixed">
+    <button class="btn-back" onclick="go(1)">← 戻る</button>
+    <button class="btn-next" onclick="go(3)">次へ　→</button>
+  </div>
+</div>
+
+<!-- STEP 3: アルコール・給油 -->
+<div class="step-wrap" id="s3">
+  <div class="step-eyebrow">Step 3 of 4</div>
+  <div class="step-title">チェック・給油</div>
+
+  <div class="card">
+    <div class="card-label">🛡️ アルコールチェック</div>
+    <div class="big-toggle" id="alc-b" onclick="toggleAlc('b')">
+      <div class="toggle-left">
+        <div class="toggle-icon">🚦</div>
+        <div>
+          <div class="toggle-text">出発前チェック</div>
+          <div class="toggle-sub">乗車前に実施</div>
+        </div>
+      </div>
+      <span class="pill" id="pill-b">未</span>
+    </div>
+
+  </div>
+
+  <div class="card">
+    <div class="card-label">⛽ 給油（なければ空欄でOK）</div>
+    <div class="field-row">
+      <div class="field">
+        <label>給油量</label>
+        <div class="input-unit">
+          <input type="number" id="f-fuel" placeholder="0.0" inputmode="decimal" step="0.1" min="0" oninput="calcFuel()">
+          <span class="unit">L</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>単価</label>
+        <div class="input-unit">
+          <input type="number" id="f-fprice" placeholder="175" inputmode="numeric" min="0" oninput="calcFuel()">
+          <span class="unit">円/L</span>
+        </div>
+      </div>
+    </div>
+    <div class="fuel-total-row">
+      <span class="fuel-total-label">合計金額</span>
+      <span class="fuel-total-val" id="f-ftotal">—</span>
+    </div>
+  </div>
+
+  <div class="nav-fixed">
+    <button class="btn-back" onclick="go(2)">← 戻る</button>
+    <button class="btn-next" onclick="go(4)">次へ　→</button>
+  </div>
+</div>
+
+<!-- STEP 4: 画像・備考 -->
+<div class="step-wrap" id="s4">
+  <div class="step-eyebrow">Step 4 of 4</div>
+  <div class="step-title">画像と備考</div>
+
+  <div class="card">
+    <div class="card-label">📷 走行後の車両画像</div>
+    <div class="cam-zone" id="cam-zone">
+      <input type="file" id="f-imgs" accept="image/*" multiple capture="environment" onchange="handleImgs(this.files)">
+      <span class="cam-zone-icon">📸</span>
+      <div class="cam-zone-label">タップしてカメラ起動</div>
+      <div class="cam-zone-hint">または画像ファイルを選択 · 複数枚OK</div>
+    </div>
+    <div class="preview-grid" id="preview-grid"></div>
+    <div class="skip-txt" onclick="go(5)">画像なしでスキップ</div>
+  </div>
+
+  <div class="card">
+    <div class="field">
+      <label>備考</label>
+      <textarea id="f-notes" placeholder="特記事項があれば入力してください"></textarea>
+    </div>
+  </div>
+
+  <div class="nav-fixed">
+    <button class="btn-back" onclick="go(3)">← 戻る</button>
+    <button class="btn-next" onclick="go(5)">確認へ　→</button>
+  </div>
+</div>
+
+<!-- STEP 5: 確認 -->
+<div class="step-wrap" id="s5">
+  <div class="step-eyebrow">確認</div>
+  <div class="step-title">内容を確認して送信</div>
+
+  <div class="card" id="confirm-body"></div>
+
+  <div class="nav-fixed">
+    <button class="btn-back" onclick="go(4)">← 戻る</button>
+    <button class="btn-next" id="btn-submit" onclick="submitForm()">📤 送信する</button>
+  </div>
+</div>
+
+<!-- 成功画面 -->
+<div class="success-screen" id="success-screen">
+  <div class="success-circle">✅</div>
+  <div class="success-title">送信しました！</div>
+  <div class="success-sub">Googleスプレッドシートに<br>自動で保存されました。<br><br>お疲れさまでした。</div>
+  <button class="btn-again" onclick="resetForm()">＋ 新しい記録を入力</button>
+</div>
+
+<!-- ローディング -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-txt">送信中...</div>
+</div>
+
+<!-- エラートースト -->
+<div class="error-toast" id="error-toast"></div>
+
+<script>
+// ============================================================
+// ★ ここにGASのURLを貼り付けてください ★
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwY3TldGZ24Cx6GNmgegD4p8bOYQK7nVga_x-9berPMppPSVnZxa8_qtSUbQwPsf_V1/exec';
+// ============================================================
+
+let alcB = false;
+let imgFiles = [];
+let imgDataURLs = [];
+let curStep = 1;
+
+const steps = [null,'s1','s2','s3','s4','s5'];
+const progPct = [null,'25','50','75','100','100'];
+const stepLabels = [null,'ステップ 1 / 4','ステップ 2 / 4','ステップ 3 / 4','ステップ 4 / 4','確認'];
+
+function go(n) {
+  if (n === 2) {
+    if (!v('f-driver') || !v('f-depart') || !v('f-dest')) {
+      showError('運転者名・出発日時・行先は必須です');
+      return;
+    }
+  }
+  if (n === 5) buildConfirm();
+  document.querySelectorAll('.step-wrap').forEach(el => el.classList.remove('active'));
+  document.getElementById(steps[n]).classList.add('active');
+  document.getElementById('progress-fill').style.width = progPct[n] + '%';
+  document.getElementById('step-sub').textContent = stepLabels[n];
+  document.getElementById('success-screen').style.display = 'none';
+  curStep = n;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function v(id) { return (document.getElementById(id).value || '').trim(); }
+
+function toggleAlc(t) {
+  alcB = !alcB;
+  document.getElementById('alc-b').classList.toggle('on', alcB);
+  document.getElementById('pill-b').textContent = alcB ? '済' : '未';
+}
+
+document.getElementById('f-odo-s').addEventListener('input', calcDist);
+document.getElementById('f-odo-e').addEventListener('input', calcDist);
+function calcDist() {
+  const s = parseFloat(document.getElementById('f-odo-s').value) || 0;
+  const e = parseFloat(document.getElementById('f-odo-e').value) || 0;
+  if (e > s) document.getElementById('f-dist').value = (e - s).toFixed(1);
+}
+
+function calcFuel() {
+  const l = parseFloat(document.getElementById('f-fuel').value) || 0;
+  const p = parseFloat(document.getElementById('f-fprice').value) || 0;
+  document.getElementById('f-ftotal').textContent = (l && p) ? Math.round(l * p).toLocaleString() + ' 円' : '—';
+}
+
+function handleImgs(files) {
+  Array.from(files).forEach(f => {
+    if (!f.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      imgFiles.push(f);
+      imgDataURLs.push(ev.target.result);
+      renderPreviews();
+    };
+    reader.readAsDataURL(f);
+  });
+}
+
+function renderPreviews() {
+  const grid = document.getElementById('preview-grid');
+  grid.innerHTML = imgDataURLs.map((src, i) =>
+    `<div class="thumb"><img src="${src}" alt="画像${i+1}"><button class="thumb-del" onclick="removeImg(${i})">✕</button></div>`
+  ).join('');
+}
+
+function removeImg(i) {
+  imgFiles.splice(i, 1);
+  imgDataURLs.splice(i, 1);
+  renderPreviews();
+}
+
+function fmt(v) { return v || '—'; }
+function badge(ok) {
+  return ok
+    ? '<span class="confirm-badge badge-ok">済</span>'
+    : '<span class="confirm-badge badge-ng">未実施</span>';
+}
+function buildConfirm() {
+  const rows = [
+    ['運転者', fmt(v('f-driver'))],
+    ['出発日時', fmt(v('f-depart').replace('T', ' '))],
+    ['帰着日時', fmt(v('f-return').replace('T', ' '))],
+    ['行先', fmt(v('f-dest'))],
+    ['走行距離', v('f-dist') ? v('f-dist') + ' km' : '—'],
+    ['アルコールチェック', badge(alcB)],
+    ['給油量', v('f-fuel') ? v('f-fuel') + ' L' : 'なし'],
+    ['画像', imgFiles.length ? imgFiles.length + '枚' : 'なし'],
+    ['備考', fmt(v('f-notes'))],
+  ];
+  document.getElementById('confirm-body').innerHTML = rows.map(([k, val]) =>
+    `<div class="confirm-row"><span class="confirm-key">${k}</span><span class="confirm-val">${val}</span></div>`
+  ).join('');
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-toast');
+  el.textContent = '⚠️ ' + msg;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+async function submitForm() {
+  if (GAS_URL === 'YOUR_GAS_URL_HERE') {
+    showError('GAS URLが設定されていません。HTMLファイルのGAS_URLを設定してください。');
+    return;
+  }
+
+  document.getElementById('loading-overlay').style.display = 'flex';
+  document.getElementById('btn-submit').disabled = true;
+
+  try {
+    const payload = {
+      driver: v('f-driver'),
+      depart: v('f-depart').replace('T', ' '),
+      return: v('f-return').replace('T', ' '),
+      destination: v('f-dest'),
+      distance: v('f-dist'),
+      alcBefore: alcB,
+      fuel: v('f-fuel'),
+      fuelTotal: document.getElementById('f-ftotal').textContent.replace(/[^0-9]/g, ''),
+      imageCount: imgFiles.length,
+      notes: v('f-notes'),
+      timestamp: new Date().toLocaleString('ja-JP'),
+    };
+
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload),
+    });
+
+    document.getElementById('loading-overlay').style.display = 'none';
+    document.querySelectorAll('.step-wrap').forEach(el => el.classList.remove('active'));
+    document.getElementById('success-screen').style.display = 'flex';
+    document.getElementById('progress-fill').style.width = '100%';
+    document.getElementById('step-sub').textContent = '送信完了';
+  } catch (err) {
+    document.getElementById('loading-overlay').style.display = 'none';
+    document.getElementById('btn-submit').disabled = false;
+    showError('送信に失敗しました。通信状況を確認してください。');
+    console.error(err);
+  }
+}
+
+function resetForm() {
+  ['f-driver','f-depart','f-return','f-dest','f-odo-s','f-odo-e','f-dist',
+   'f-fuel','f-fprice','f-notes'].forEach(id => document.getElementById(id).value = '');
+  alcB = false;
+  document.getElementById('alc-b').classList.remove('on');
+  document.getElementById('pill-b').textContent = '未';
+  document.getElementById('f-ftotal').textContent = '—';
+  imgFiles = []; imgDataURLs = [];
+  document.getElementById('preview-grid').innerHTML = '';
+  document.getElementById('btn-submit').disabled = false;
+  go(1);
+}
+
+// 出発日時を現在時刻で初期化
+const now = new Date();
+const pad = n => String(n).padStart(2, '0');
+document.getElementById('f-depart').value =
+  `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+</script>
+</body>
+</html>
